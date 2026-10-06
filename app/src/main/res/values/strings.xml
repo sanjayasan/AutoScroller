@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">AutoScroller</string>
+    <string name="accessibility_service_name">AutoScroller Gesture Service</string>
+    <string name="accessibility_service_description">Enables automated swipe and scroll gesture dispatch between configured screen coordinates.</string>
+    <string name="notification_channel_name">AutoScroller Overlay Service</string>
+    <string name="notification_channel_desc">Active persistent notification while the floating controller is open.</string>
+    <string name="notification_title">AutoScroller Active</string>
+    <string name="notification_content">Floating controller is running. Tap to return.</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_start">Start</string>
+    <string name="btn_minimize">Minimize</string>
+    <string name="btn_close">Close</string>
+    <string name="point_a">Point A</string>
+    <string name="point_b">Point B</string>
+</resources>
