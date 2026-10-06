@@ -7,13 +7,48 @@
     android:elevation="12dp"
     android:gravity="center_vertical"
     android:orientation="horizontal"
+    android:clickable="true"
+    android:focusable="true"
     android:paddingStart="12dp"
     android:paddingTop="6dp"
     android:paddingEnd="8dp"
     android:paddingBottom="6dp">
 
+    <!-- Countdown Timer Section -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:contentDescription="@string/timer_icon_desc"
+            android:src="@drawable/ic_timer" />
+
+        <TextView
+            android:id="@+id/tv_pill_timer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="3s"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="1dp"
+        android:layout_height="14dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:background="@color/overlay_border" />
+
+    <!-- Loop Count Section -->
     <TextView
-        android:id="@+id/tv_pill_status"
+        android:id="@+id/tv_pill_loops"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Loop 0/20"
@@ -21,21 +56,13 @@
         android:textSize="13sp"
         android:textStyle="bold" />
 
+    <!-- Collapse / Expand Menu Button -->
     <ImageButton
-        android:id="@+id/btn_pill_stop"
+        android:id="@+id/btn_pill_menu"
         android:layout_width="28dp"
         android:layout_height="28dp"
         android:layout_marginStart="8dp"
         android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/btn_stop"
-        android:src="@drawable/ic_stop" />
-
-    <ImageButton
-        android:id="@+id/btn_pill_expand"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:layout_marginStart="4dp"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Expand"
-        android:src="@drawable/ic_play" />
+        android:contentDescription="@string/btn_menu"
+        android:src="@drawable/ic_menu" />
 </LinearLayout>

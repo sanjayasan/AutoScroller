@@ -9,13 +9,17 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.TextView
 import com.autoscroller.app.R
 import com.autoscroller.app.model.GestureConfig
 import com.autoscroller.app.model.PointCoordinate
 import com.autoscroller.app.model.ScrollerState
+import kotlin.math.abs
 
 class OverlayController(
     private val context: Context,
@@ -66,34 +70,45 @@ class OverlayController(
     fun updateCountdown(remainingSeconds: Int) {
         val text = "Starting in ${remainingSeconds}s..."
         expandedView?.findViewById<TextView>(R.id.tv_status_message)?.text = text
-        minimizedView?.findViewById<TextView>(R.id.tv_pill_status)?.text = "${remainingSeconds}s"
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)?.text = "${remainingSeconds}s"
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_loops)?.text = "Loop 0/${gestureConfig.loopCount}"
     }
 
     fun updateProgress(currentLoop: Int, totalLoops: Int) {
         val text = "Loop $currentLoop / $totalLoops"
         expandedView?.findViewById<TextView>(R.id.tv_status_message)?.text = "Running: $text"
-        minimizedView?.findViewById<TextView>(R.id.tv_pill_status)?.text = text
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)?.text = "0s"
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_loops)?.text = "Loop $currentLoop/$totalLoops"
     }
 
     fun updateState(state: ScrollerState) {
         val statusTv = expandedView?.findViewById<TextView>(R.id.tv_status_message)
-        val pillTv = minimizedView?.findViewById<TextView>(R.id.tv_pill_status)
+        val pillTimerTv = minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)
+        val pillLoopsTv = minimizedView?.findViewById<TextView>(R.id.tv_pill_loops)
         when (state) {
             ScrollerState.IDLE -> {
                 statusTv?.text = "Status: Ready"
-                pillTv?.text = "Ready"
+                pillTimerTv?.text = "${gestureConfig.startDelaySeconds}s"
+                pillLoopsTv?.text = "Loop 0/${gestureConfig.loopCount}"
             }
             ScrollerState.COUNTDOWN -> {
                 statusTv?.text = "Counting down..."
+                pillLoopsTv?.text = "Loop 0/${gestureConfig.loopCount}"
             }
             ScrollerState.RUNNING -> {
                 statusTv?.text = "Running swipe loop"
             }
             ScrollerState.STOPPED -> {
                 statusTv?.text = "Status: Stopped"
-                pillTv?.text = "Stopped"
+                pillTimerTv?.text = "0s"
+                pillLoopsTv?.text = "Stopped"
             }
         }
+    }
+
+    private fun syncMinimizedPill() {
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)?.text = "${gestureConfig.startDelaySeconds}s"
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_loops)?.text = "Loop 0/${gestureConfig.loopCount}"
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -108,19 +123,34 @@ class OverlayController(
         val dragBar = view.findViewById<View>(R.id.header_drag_bar)
         setupDraggable(dragBar, view, params)
 
+        // Dismiss keyboard when clicking outside input fields
+        view.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                dismissActiveFocus()
+            }
+            false
+        }
+        dragBar.setOnClickListener {
+            dismissActiveFocus()
+        }
+
         // Minimize & Close buttons
         view.findViewById<ImageButton>(R.id.btn_minimize).setOnClickListener {
+            dismissActiveFocus()
             switchToMinimized()
         }
         view.findViewById<ImageButton>(R.id.btn_close).setOnClickListener {
+            dismissActiveFocus()
             onCloseRequested?.invoke()
         }
 
         // Pin markers toggle
         view.findViewById<View>(R.id.btn_toggle_pin_a).setOnClickListener {
+            dismissActiveFocus()
             pinMarkerManager.togglePinA()
         }
         view.findViewById<View>(R.id.btn_toggle_pin_b).setOnClickListener {
+            dismissActiveFocus()
             pinMarkerManager.togglePinB()
         }
 
@@ -128,75 +158,107 @@ class OverlayController(
         updateCoordTextA(gestureConfig.pointA)
         updateCoordTextB(gestureConfig.pointB)
 
-        // Delay stepper
-        val tvDelay = view.findViewById<TextView>(R.id.tv_delay_val)
-        tvDelay.text = "${gestureConfig.startDelaySeconds}s"
-        view.findViewById<Button>(R.id.btn_delay_minus).setOnClickListener {
-            if (gestureConfig.startDelaySeconds > 0) {
-                gestureConfig.startDelaySeconds--
-                tvDelay.text = "${gestureConfig.startDelaySeconds}s"
+        // Delay stepper and direct keyboard input
+        val etDelay = view.findViewById<EditText>(R.id.et_delay_val)
+        setupEditableField(
+            editText = etDelay,
+            min = 0,
+            max = 60,
+            getValue = { gestureConfig.startDelaySeconds },
+            onValueChanged = {
+                gestureConfig.startDelaySeconds = it
+                syncMinimizedPill()
             }
+        )
+        view.findViewById<Button>(R.id.btn_delay_minus).setOnClickListener {
+            dismissActiveFocus()
+            gestureConfig.startDelaySeconds = (gestureConfig.startDelaySeconds - 1).coerceAtLeast(0)
+            etDelay.setText(gestureConfig.startDelaySeconds.toString())
+            syncMinimizedPill()
         }
         view.findViewById<Button>(R.id.btn_delay_plus).setOnClickListener {
-            if (gestureConfig.startDelaySeconds < 60) {
-                gestureConfig.startDelaySeconds++
-                tvDelay.text = "${gestureConfig.startDelaySeconds}s"
-            }
+            dismissActiveFocus()
+            gestureConfig.startDelaySeconds = (gestureConfig.startDelaySeconds + 1).coerceAtMost(60)
+            etDelay.setText(gestureConfig.startDelaySeconds.toString())
+            syncMinimizedPill()
         }
 
-        // Loops stepper
-        val tvLoops = view.findViewById<TextView>(R.id.tv_loops_val)
-        tvLoops.text = "${gestureConfig.loopCount}"
-        view.findViewById<Button>(R.id.btn_loops_minus).setOnClickListener {
-            if (gestureConfig.loopCount > 1) {
-                gestureConfig.loopCount -= if (gestureConfig.loopCount > 10) 5 else 1
-                tvLoops.text = "${gestureConfig.loopCount}"
+        // Loop count stepper (fixed to +/- 1) and direct keyboard input
+        val etLoops = view.findViewById<EditText>(R.id.et_loops_val)
+        setupEditableField(
+            editText = etLoops,
+            min = 1,
+            max = 9999,
+            getValue = { gestureConfig.loopCount },
+            onValueChanged = {
+                gestureConfig.loopCount = it
+                syncMinimizedPill()
             }
+        )
+        view.findViewById<Button>(R.id.btn_loops_minus).setOnClickListener {
+            dismissActiveFocus()
+            gestureConfig.loopCount = (gestureConfig.loopCount - 1).coerceAtLeast(1)
+            etLoops.setText(gestureConfig.loopCount.toString())
+            syncMinimizedPill()
         }
         view.findViewById<Button>(R.id.btn_loops_plus).setOnClickListener {
-            if (gestureConfig.loopCount < 9999) {
-                gestureConfig.loopCount += 5
-                tvLoops.text = "${gestureConfig.loopCount}"
-            }
+            dismissActiveFocus()
+            gestureConfig.loopCount = (gestureConfig.loopCount + 1).coerceAtMost(9999)
+            etLoops.setText(gestureConfig.loopCount.toString())
+            syncMinimizedPill()
         }
 
-        // Duration stepper
-        val tvDuration = view.findViewById<TextView>(R.id.tv_duration_val)
-        tvDuration.text = "${gestureConfig.swipeDurationMs}ms"
-        view.findViewById<Button>(R.id.btn_duration_minus).setOnClickListener {
-            if (gestureConfig.swipeDurationMs > 50L) {
-                gestureConfig.swipeDurationMs -= 50L
-                tvDuration.text = "${gestureConfig.swipeDurationMs}ms"
+        // Swipe duration stepper and direct keyboard input
+        val etDuration = view.findViewById<EditText>(R.id.et_duration_val)
+        setupEditableField(
+            editText = etDuration,
+            min = 50,
+            max = 5000,
+            getValue = { gestureConfig.swipeDurationMs.toInt() },
+            onValueChanged = {
+                gestureConfig.swipeDurationMs = it.toLong()
             }
+        )
+        view.findViewById<Button>(R.id.btn_duration_minus).setOnClickListener {
+            dismissActiveFocus()
+            gestureConfig.swipeDurationMs = (gestureConfig.swipeDurationMs - 50L).coerceAtLeast(50L)
+            etDuration.setText(gestureConfig.swipeDurationMs.toString())
         }
         view.findViewById<Button>(R.id.btn_duration_plus).setOnClickListener {
-            if (gestureConfig.swipeDurationMs < 5000L) {
-                gestureConfig.swipeDurationMs += 50L
-                tvDuration.text = "${gestureConfig.swipeDurationMs}ms"
-            }
+            dismissActiveFocus()
+            gestureConfig.swipeDurationMs = (gestureConfig.swipeDurationMs + 50L).coerceAtMost(5000L)
+            etDuration.setText(gestureConfig.swipeDurationMs.toString())
         }
 
-        // Interval stepper
-        val tvInterval = view.findViewById<TextView>(R.id.tv_interval_val)
-        tvInterval.text = "${gestureConfig.pauseIntervalMs}ms"
-        view.findViewById<Button>(R.id.btn_interval_minus).setOnClickListener {
-            if (gestureConfig.pauseIntervalMs > 100L) {
-                gestureConfig.pauseIntervalMs -= 100L
-                tvInterval.text = "${gestureConfig.pauseIntervalMs}ms"
+        // Pause interval stepper and direct keyboard input
+        val etInterval = view.findViewById<EditText>(R.id.et_interval_val)
+        setupEditableField(
+            editText = etInterval,
+            min = 100,
+            max = 10000,
+            getValue = { gestureConfig.pauseIntervalMs.toInt() },
+            onValueChanged = {
+                gestureConfig.pauseIntervalMs = it.toLong()
             }
+        )
+        view.findViewById<Button>(R.id.btn_interval_minus).setOnClickListener {
+            dismissActiveFocus()
+            gestureConfig.pauseIntervalMs = (gestureConfig.pauseIntervalMs - 100L).coerceAtLeast(100L)
+            etInterval.setText(gestureConfig.pauseIntervalMs.toString())
         }
         view.findViewById<Button>(R.id.btn_interval_plus).setOnClickListener {
-            if (gestureConfig.pauseIntervalMs < 10000L) {
-                gestureConfig.pauseIntervalMs += 100L
-                tvInterval.text = "${gestureConfig.pauseIntervalMs}ms"
-            }
+            dismissActiveFocus()
+            gestureConfig.pauseIntervalMs = (gestureConfig.pauseIntervalMs + 100L).coerceAtMost(10000L)
+            etInterval.setText(gestureConfig.pauseIntervalMs.toString())
         }
 
         // Start / Stop buttons
         view.findViewById<Button>(R.id.btn_start).setOnClickListener {
+            dismissActiveFocus()
             onStartRequested?.invoke()
         }
         view.findViewById<Button>(R.id.btn_stop).setOnClickListener {
+            dismissActiveFocus()
             onStopRequested?.invoke()
         }
 
@@ -205,8 +267,91 @@ class OverlayController(
         } catch (_: Exception) {}
     }
 
+    private fun setupEditableField(
+        editText: EditText,
+        min: Int,
+        max: Int,
+        getValue: () -> Int,
+        onValueChanged: (Int) -> Unit
+    ) {
+        editText.setText(getValue().toString())
+
+        fun commit() {
+            val text = editText.text.toString().trim()
+            val parsed = text.toIntOrNull() ?: getValue()
+            val clamped = parsed.coerceIn(min, max)
+            onValueChanged(clamped)
+            editText.setText(clamped.toString())
+        }
+
+        fun hideKeyboard() {
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(editText.windowToken, 0)
+            editText.clearFocus()
+            setOverlayFocusable(false)
+        }
+
+        editText.setOnClickListener {
+            setOverlayFocusable(true)
+            editText.requestFocus()
+            editText.selectAll()
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT)
+        }
+
+        editText.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                setOverlayFocusable(true)
+                editText.post {
+                    editText.selectAll()
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT)
+                }
+            } else {
+                commit()
+                setOverlayFocusable(false)
+            }
+        }
+
+        editText.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                commit()
+                hideKeyboard()
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    private fun dismissActiveFocus() {
+        val currentFocus = expandedView?.findFocus()
+        if (currentFocus is EditText) {
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(currentFocus.windowToken, 0)
+            currentFocus.clearFocus()
+            setOverlayFocusable(false)
+        }
+    }
+
+    private fun setOverlayFocusable(focusable: Boolean) {
+        expandedParams?.let { params ->
+            if (focusable) {
+                params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or
+                    WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN
+            } else {
+                params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            }
+            try {
+                windowManager.updateViewLayout(expandedView, params)
+            } catch (_: Exception) {}
+        }
+    }
+
     private fun removeExpandedView() {
         expandedView?.let {
+            dismissActiveFocus()
             try {
                 windowManager.removeView(it)
             } catch (_: Exception) {}
@@ -223,14 +368,14 @@ class OverlayController(
         minimizedParams = params
         minimizedView = view
 
-        setupDraggable(view, view, params)
+        syncMinimizedPill()
 
-        view.findViewById<ImageButton>(R.id.btn_pill_expand).setOnClickListener {
+        setupDraggable(view, view, params) {
             switchToExpanded()
         }
 
-        view.findViewById<ImageButton>(R.id.btn_pill_stop).setOnClickListener {
-            onStopRequested?.invoke()
+        view.findViewById<ImageButton>(R.id.btn_pill_menu).setOnClickListener {
+            switchToExpanded()
         }
 
         try {
@@ -281,12 +426,14 @@ class OverlayController(
     private fun setupDraggable(
         dragTrigger: View,
         rootView: View,
-        params: WindowManager.LayoutParams
+        params: WindowManager.LayoutParams,
+        onSingleTap: (() -> Unit)? = null
     ) {
         var initialX = 0
         var initialY = 0
         var initialTouchX = 0f
         var initialTouchY = 0f
+        var hasMoved = false
 
         dragTrigger.setOnTouchListener { _, event ->
             when (event.action) {
@@ -295,14 +442,26 @@ class OverlayController(
                     initialY = params.y
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
+                    hasMoved = false
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    params.x = initialX + (event.rawX - initialTouchX).toInt()
-                    params.y = initialY + (event.rawY - initialTouchY).toInt()
+                    val dx = (event.rawX - initialTouchX).toInt()
+                    val dy = (event.rawY - initialTouchY).toInt()
+                    if (abs(dx) > 10 || abs(dy) > 10) {
+                        hasMoved = true
+                    }
+                    params.x = initialX + dx
+                    params.y = initialY + dy
                     try {
                         windowManager.updateViewLayout(rootView, params)
                     } catch (_: Exception) {}
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!hasMoved) {
+                        onSingleTap?.invoke()
+                    }
                     true
                 }
                 else -> false

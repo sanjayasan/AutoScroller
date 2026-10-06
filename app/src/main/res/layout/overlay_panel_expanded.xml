@@ -129,7 +129,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Start Delay:"
+            android:text="Start Delay (s):"
             android:textColor="@color/text_primary"
             android:textSize="13sp" />
 
@@ -141,15 +141,22 @@
             android:text="-"
             android:textSize="16sp" />
 
-        <TextView
-            android:id="@+id/tv_delay_val"
-            android:layout_width="56dp"
-            android:layout_height="wrap_content"
+        <EditText
+            android:id="@+id/et_delay_val"
+            android:layout_width="60dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/bg_input_field"
             android:gravity="center"
-            android:text="3s"
+            android:inputType="number"
+            android:imeOptions="actionDone"
+            android:selectAllOnFocus="true"
+            android:text="3"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:maxLength="3" />
 
         <Button
             android:id="@+id/btn_delay_plus"
@@ -184,15 +191,22 @@
             android:text="-"
             android:textSize="16sp" />
 
-        <TextView
-            android:id="@+id/tv_loops_val"
-            android:layout_width="56dp"
-            android:layout_height="wrap_content"
+        <EditText
+            android:id="@+id/et_loops_val"
+            android:layout_width="60dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/bg_input_field"
             android:gravity="center"
+            android:inputType="number"
+            android:imeOptions="actionDone"
+            android:selectAllOnFocus="true"
             android:text="20"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:maxLength="4" />
 
         <Button
             android:id="@+id/btn_loops_plus"
@@ -215,7 +229,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Swipe Duration:"
+            android:text="Swipe Duration (ms):"
             android:textColor="@color/text_primary"
             android:textSize="13sp" />
 
@@ -227,15 +241,22 @@
             android:text="-"
             android:textSize="16sp" />
 
-        <TextView
-            android:id="@+id/tv_duration_val"
-            android:layout_width="56dp"
-            android:layout_height="wrap_content"
+        <EditText
+            android:id="@+id/et_duration_val"
+            android:layout_width="60dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/bg_input_field"
             android:gravity="center"
-            android:text="350ms"
+            android:inputType="number"
+            android:imeOptions="actionDone"
+            android:selectAllOnFocus="true"
+            android:text="350"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:maxLength="5" />
 
         <Button
             android:id="@+id/btn_duration_plus"
@@ -258,7 +279,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Pause Interval:"
+            android:text="Pause Interval (ms):"
             android:textColor="@color/text_primary"
             android:textSize="13sp" />
 
@@ -270,15 +291,22 @@
             android:text="-"
             android:textSize="16sp" />
 
-        <TextView
-            android:id="@+id/tv_interval_val"
-            android:layout_width="56dp"
-            android:layout_height="wrap_content"
+        <EditText
+            android:id="@+id/et_interval_val"
+            android:layout_width="60dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/bg_input_field"
             android:gravity="center"
-            android:text="1500ms"
+            android:inputType="number"
+            android:imeOptions="actionDone"
+            android:selectAllOnFocus="true"
+            android:text="1500"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:maxLength="5" />
 
         <Button
             android:id="@+id/btn_interval_plus"

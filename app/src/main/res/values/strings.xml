@@ -12,4 +12,6 @@
     <string name="btn_close">Close</string>
     <string name="point_a">Point A</string>
     <string name="point_b">Point B</string>
+    <string name="btn_menu">Menu</string>
+    <string name="timer_icon_desc">Countdown Timer</string>
 </resources>
