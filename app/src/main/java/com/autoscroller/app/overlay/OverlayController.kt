@@ -19,13 +19,16 @@ import com.autoscroller.app.R
 import com.autoscroller.app.model.GestureConfig
 import com.autoscroller.app.model.PointCoordinate
 import com.autoscroller.app.model.ScrollerState
+import com.autoscroller.app.util.PreferenceHelper
+import java.util.Locale
 import kotlin.math.abs
 
 class OverlayController(
     private val context: Context,
     private val windowManager: WindowManager,
     private val gestureConfig: GestureConfig,
-    private val pinMarkerManager: PinMarkerManager
+    private val pinMarkerManager: PinMarkerManager,
+    private val preferenceHelper: PreferenceHelper
 ) {
 
     private var expandedView: View? = null
@@ -43,12 +46,15 @@ class OverlayController(
     fun initialize() {
         showExpandedView()
 
+        pinMarkerManager.setInitialCoordinates(gestureConfig.pointA, gestureConfig.pointB)
         pinMarkerManager.onPointAChanged = { coord ->
             gestureConfig.pointA = coord
+            preferenceHelper.saveGestureConfig(gestureConfig)
             updateCoordTextA(coord)
         }
         pinMarkerManager.onPointBChanged = { coord ->
             gestureConfig.pointB = coord
+            preferenceHelper.saveGestureConfig(gestureConfig)
             updateCoordTextB(coord)
         }
     }
@@ -67,18 +73,41 @@ class OverlayController(
         isExpanded = true
     }
 
-    fun updateCountdown(remainingSeconds: Int) {
+    private fun formatInterval(ms: Long, keepDecimal: Boolean = false): String {
+        val nonNegative = ms.coerceAtLeast(0L)
+        val sec = nonNegative / 1000.0
+        return if (keepDecimal) {
+            String.format(Locale.US, "%.1fs", sec)
+        } else {
+            if (nonNegative % 1000L == 0L) {
+                "${nonNegative / 1000L}s"
+            } else {
+                String.format(Locale.US, "%.1fs", sec)
+            }
+        }
+    }
+
+    fun updateStartupCountdown(remainingSeconds: Int) {
         val text = "Starting in ${remainingSeconds}s..."
         expandedView?.findViewById<TextView>(R.id.tv_status_message)?.text = text
-        minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)?.text = "${remainingSeconds}s"
-        minimizedView?.findViewById<TextView>(R.id.tv_pill_loops)?.text = "Loop 0/${gestureConfig.loopCount}"
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)?.text =
+            formatInterval(gestureConfig.pauseIntervalMs)
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_loops)?.text =
+            "Start in ${remainingSeconds}s"
+    }
+
+    fun updatePauseIntervalCountdown(remainingMs: Long) {
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)?.text =
+            formatInterval(remainingMs, keepDecimal = true)
     }
 
     fun updateProgress(currentLoop: Int, totalLoops: Int) {
         val text = "Loop $currentLoop / $totalLoops"
         expandedView?.findViewById<TextView>(R.id.tv_status_message)?.text = "Running: $text"
-        minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)?.text = "0s"
-        minimizedView?.findViewById<TextView>(R.id.tv_pill_loops)?.text = "Loop $currentLoop/$totalLoops"
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)?.text =
+            formatInterval(gestureConfig.pauseIntervalMs)
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_loops)?.text =
+            "Loop $currentLoop/$totalLoops"
     }
 
     fun updateState(state: ScrollerState) {
@@ -88,27 +117,30 @@ class OverlayController(
         when (state) {
             ScrollerState.IDLE -> {
                 statusTv?.text = "Status: Ready"
-                pillTimerTv?.text = "${gestureConfig.startDelaySeconds}s"
+                pillTimerTv?.text = formatInterval(gestureConfig.pauseIntervalMs)
                 pillLoopsTv?.text = "Loop 0/${gestureConfig.loopCount}"
             }
             ScrollerState.COUNTDOWN -> {
                 statusTv?.text = "Counting down..."
-                pillLoopsTv?.text = "Loop 0/${gestureConfig.loopCount}"
+                pillTimerTv?.text = formatInterval(gestureConfig.pauseIntervalMs)
+                pillLoopsTv?.text = "Starting..."
             }
             ScrollerState.RUNNING -> {
                 statusTv?.text = "Running swipe loop"
             }
             ScrollerState.STOPPED -> {
                 statusTv?.text = "Status: Stopped"
-                pillTimerTv?.text = "0s"
+                pillTimerTv?.text = formatInterval(gestureConfig.pauseIntervalMs)
                 pillLoopsTv?.text = "Stopped"
             }
         }
     }
 
     private fun syncMinimizedPill() {
-        minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)?.text = "${gestureConfig.startDelaySeconds}s"
-        minimizedView?.findViewById<TextView>(R.id.tv_pill_loops)?.text = "Loop 0/${gestureConfig.loopCount}"
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_timer)?.text =
+            formatInterval(gestureConfig.pauseIntervalMs)
+        minimizedView?.findViewById<TextView>(R.id.tv_pill_loops)?.text =
+            "Loop 0/${gestureConfig.loopCount}"
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -167,20 +199,20 @@ class OverlayController(
             getValue = { gestureConfig.startDelaySeconds },
             onValueChanged = {
                 gestureConfig.startDelaySeconds = it
-                syncMinimizedPill()
+                preferenceHelper.saveGestureConfig(gestureConfig)
             }
         )
         view.findViewById<Button>(R.id.btn_delay_minus).setOnClickListener {
             dismissActiveFocus()
             gestureConfig.startDelaySeconds = (gestureConfig.startDelaySeconds - 1).coerceAtLeast(0)
             etDelay.setText(gestureConfig.startDelaySeconds.toString())
-            syncMinimizedPill()
+            preferenceHelper.saveGestureConfig(gestureConfig)
         }
         view.findViewById<Button>(R.id.btn_delay_plus).setOnClickListener {
             dismissActiveFocus()
             gestureConfig.startDelaySeconds = (gestureConfig.startDelaySeconds + 1).coerceAtMost(60)
             etDelay.setText(gestureConfig.startDelaySeconds.toString())
-            syncMinimizedPill()
+            preferenceHelper.saveGestureConfig(gestureConfig)
         }
 
         // Loop count stepper (fixed to +/- 1) and direct keyboard input
@@ -192,6 +224,7 @@ class OverlayController(
             getValue = { gestureConfig.loopCount },
             onValueChanged = {
                 gestureConfig.loopCount = it
+                preferenceHelper.saveGestureConfig(gestureConfig)
                 syncMinimizedPill()
             }
         )
@@ -199,12 +232,14 @@ class OverlayController(
             dismissActiveFocus()
             gestureConfig.loopCount = (gestureConfig.loopCount - 1).coerceAtLeast(1)
             etLoops.setText(gestureConfig.loopCount.toString())
+            preferenceHelper.saveGestureConfig(gestureConfig)
             syncMinimizedPill()
         }
         view.findViewById<Button>(R.id.btn_loops_plus).setOnClickListener {
             dismissActiveFocus()
             gestureConfig.loopCount = (gestureConfig.loopCount + 1).coerceAtMost(9999)
             etLoops.setText(gestureConfig.loopCount.toString())
+            preferenceHelper.saveGestureConfig(gestureConfig)
             syncMinimizedPill()
         }
 
@@ -217,17 +252,20 @@ class OverlayController(
             getValue = { gestureConfig.swipeDurationMs.toInt() },
             onValueChanged = {
                 gestureConfig.swipeDurationMs = it.toLong()
+                preferenceHelper.saveGestureConfig(gestureConfig)
             }
         )
         view.findViewById<Button>(R.id.btn_duration_minus).setOnClickListener {
             dismissActiveFocus()
             gestureConfig.swipeDurationMs = (gestureConfig.swipeDurationMs - 50L).coerceAtLeast(50L)
             etDuration.setText(gestureConfig.swipeDurationMs.toString())
+            preferenceHelper.saveGestureConfig(gestureConfig)
         }
         view.findViewById<Button>(R.id.btn_duration_plus).setOnClickListener {
             dismissActiveFocus()
             gestureConfig.swipeDurationMs = (gestureConfig.swipeDurationMs + 50L).coerceAtMost(5000L)
             etDuration.setText(gestureConfig.swipeDurationMs.toString())
+            preferenceHelper.saveGestureConfig(gestureConfig)
         }
 
         // Pause interval stepper and direct keyboard input
@@ -239,17 +277,23 @@ class OverlayController(
             getValue = { gestureConfig.pauseIntervalMs.toInt() },
             onValueChanged = {
                 gestureConfig.pauseIntervalMs = it.toLong()
+                preferenceHelper.saveGestureConfig(gestureConfig)
+                syncMinimizedPill()
             }
         )
         view.findViewById<Button>(R.id.btn_interval_minus).setOnClickListener {
             dismissActiveFocus()
             gestureConfig.pauseIntervalMs = (gestureConfig.pauseIntervalMs - 100L).coerceAtLeast(100L)
             etInterval.setText(gestureConfig.pauseIntervalMs.toString())
+            preferenceHelper.saveGestureConfig(gestureConfig)
+            syncMinimizedPill()
         }
         view.findViewById<Button>(R.id.btn_interval_plus).setOnClickListener {
             dismissActiveFocus()
             gestureConfig.pauseIntervalMs = (gestureConfig.pauseIntervalMs + 100L).coerceAtMost(10000L)
             etInterval.setText(gestureConfig.pauseIntervalMs.toString())
+            preferenceHelper.saveGestureConfig(gestureConfig)
+            syncMinimizedPill()
         }
 
         // Start / Stop buttons

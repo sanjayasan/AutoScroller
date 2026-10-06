@@ -17,6 +17,7 @@ import com.autoscroller.app.model.ScrollerState
 import com.autoscroller.app.overlay.OverlayController
 import com.autoscroller.app.overlay.PinMarkerManager
 import com.autoscroller.app.ui.MainActivity
+import com.autoscroller.app.util.PreferenceHelper
 import com.autoscroller.app.util.VibrationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,15 +57,24 @@ class FloatingOverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var pinMarkerManager: PinMarkerManager
     private lateinit var overlayController: OverlayController
-    private val gestureConfig = GestureConfig()
+    private lateinit var preferenceHelper: PreferenceHelper
+    private lateinit var gestureConfig: GestureConfig
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        preferenceHelper = PreferenceHelper(this)
+        gestureConfig = preferenceHelper.loadGestureConfig()
         pinMarkerManager = PinMarkerManager(this, windowManager)
-        overlayController = OverlayController(this, windowManager, gestureConfig, pinMarkerManager)
+        overlayController = OverlayController(
+            this,
+            windowManager,
+            gestureConfig,
+            pinMarkerManager,
+            preferenceHelper
+        )
 
         startAsForeground()
         setupOverlayCallbacks()
@@ -157,7 +167,7 @@ class FloatingOverlayService : Service() {
             overlayController.updateState(ScrollerState.COUNTDOWN)
             var remaining = gestureConfig.startDelaySeconds
             while (remaining > 0 && isActive) {
-                overlayController.updateCountdown(remaining)
+                overlayController.updateStartupCountdown(remaining)
                 delay(1000L)
                 remaining--
             }
@@ -184,8 +194,17 @@ class FloatingOverlayService : Service() {
 
                 if (!success || !isActive) break
 
-                // Pause interval between swipes
-                delay(gestureConfig.pauseIntervalMs)
+                // Pause interval countdown between swipes
+                if (loop < gestureConfig.loopCount) {
+                    var pauseRemaining = gestureConfig.pauseIntervalMs
+                    val stepMs = 100L
+                    while (pauseRemaining > 0 && isActive) {
+                        overlayController.updatePauseIntervalCountdown(pauseRemaining)
+                        val sleepTime = minOf(stepMs, pauseRemaining)
+                        delay(sleepTime)
+                        pauseRemaining -= sleepTime
+                    }
+                }
             }
 
             onExecutionCompleted()
@@ -209,6 +228,9 @@ class FloatingOverlayService : Service() {
         super.onDestroy()
         stopExecution()
         serviceScope.cancel()
+        if (::preferenceHelper.isInitialized && ::gestureConfig.isInitialized) {
+            preferenceHelper.saveGestureConfig(gestureConfig)
+        }
         overlayController.destroy()
     }
 }

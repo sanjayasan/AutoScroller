@@ -30,6 +30,11 @@ class PinMarkerManager(
     var onPointAChanged: ((PointCoordinate) -> Unit)? = null
     var onPointBChanged: ((PointCoordinate) -> Unit)? = null
 
+    fun setInitialCoordinates(a: PointCoordinate, b: PointCoordinate) {
+        pinACoordinate = a
+        pinBCoordinate = b
+    }
+
     val isPinAShown: Boolean get() = pinAView != null
     val isPinBShown: Boolean get() = pinBView != null
 

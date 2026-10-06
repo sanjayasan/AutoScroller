@@ -32,7 +32,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
-            android:text="3s"
+            android:text="1.5s"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
             android:textStyle="bold" />
