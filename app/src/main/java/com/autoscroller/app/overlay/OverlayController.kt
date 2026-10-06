@@ -31,6 +31,11 @@ class OverlayController(
     private val preferenceHelper: PreferenceHelper
 ) {
 
+    companion object {
+        const val MIN_PAUSE_INTERVAL_MS = 100L
+        const val MAX_PAUSE_INTERVAL_MS = 3_600_000L // 1 hour max pause
+    }
+
     private var expandedView: View? = null
     private var expandedParams: WindowManager.LayoutParams? = null
 
@@ -272,8 +277,8 @@ class OverlayController(
         val etInterval = view.findViewById<EditText>(R.id.et_interval_val)
         setupEditableField(
             editText = etInterval,
-            min = 100,
-            max = 10000,
+            min = MIN_PAUSE_INTERVAL_MS.toInt(),
+            max = MAX_PAUSE_INTERVAL_MS.toInt(),
             getValue = { gestureConfig.pauseIntervalMs.toInt() },
             onValueChanged = {
                 gestureConfig.pauseIntervalMs = it.toLong()
@@ -283,14 +288,14 @@ class OverlayController(
         )
         view.findViewById<Button>(R.id.btn_interval_minus).setOnClickListener {
             dismissActiveFocus()
-            gestureConfig.pauseIntervalMs = (gestureConfig.pauseIntervalMs - 100L).coerceAtLeast(100L)
+            gestureConfig.pauseIntervalMs = (gestureConfig.pauseIntervalMs - 100L).coerceAtLeast(MIN_PAUSE_INTERVAL_MS)
             etInterval.setText(gestureConfig.pauseIntervalMs.toString())
             preferenceHelper.saveGestureConfig(gestureConfig)
             syncMinimizedPill()
         }
         view.findViewById<Button>(R.id.btn_interval_plus).setOnClickListener {
             dismissActiveFocus()
-            gestureConfig.pauseIntervalMs = (gestureConfig.pauseIntervalMs + 100L).coerceAtMost(10000L)
+            gestureConfig.pauseIntervalMs = (gestureConfig.pauseIntervalMs + 100L).coerceAtMost(MAX_PAUSE_INTERVAL_MS)
             etInterval.setText(gestureConfig.pauseIntervalMs.toString())
             preferenceHelper.saveGestureConfig(gestureConfig)
             syncMinimizedPill()
@@ -299,6 +304,7 @@ class OverlayController(
         // Start / Stop buttons
         view.findViewById<Button>(R.id.btn_start).setOnClickListener {
             dismissActiveFocus()
+            switchToMinimized()
             onStartRequested?.invoke()
         }
         view.findViewById<Button>(R.id.btn_stop).setOnClickListener {

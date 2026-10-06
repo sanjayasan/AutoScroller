@@ -9,6 +9,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.autoscroller.app.AutoScrollerApp
 import com.autoscroller.app.R
@@ -150,18 +151,22 @@ class FloatingOverlayService : Service() {
     private fun startExecution() {
         val accessibilityService = ScrollAccessibilityService.instance
         if (accessibilityService == null) {
+            Toast.makeText(this, R.string.error_accessibility_required, Toast.LENGTH_LONG).show()
             VibrationHelper.vibrateMedium(this)
             overlayController.updateState(ScrollerState.STOPPED)
+            overlayController.switchToExpanded()
             return
         }
 
-        stopExecution()
+        executionJob?.cancel()
+        executionJob = null
         VibrationHelper.vibrateShort(this)
 
+        // Ensure pins are hidden and minimized overlay view is active right away
+        pinMarkerManager.setPinsVisibility(false)
+        overlayController.switchToMinimized()
+
         executionJob = serviceScope.launch {
-            // Hide pins during swipe sequence so they don't block clicks/gestures
-            pinMarkerManager.setPinsVisibility(false)
-            overlayController.switchToMinimized()
 
             // 1. Countdown phase
             overlayController.updateState(ScrollerState.COUNTDOWN)

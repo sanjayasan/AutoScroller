@@ -14,4 +14,5 @@
     <string name="point_b">Point B</string>
     <string name="btn_menu">Menu</string>
     <string name="timer_icon_desc">Pause Interval Timer</string>
+    <string name="error_accessibility_required">Accessibility Service is not enabled. Please enable it in Settings.</string>
 </resources>
